@@ -10,7 +10,10 @@ const upload = multer({
 });
 
 app.use(cors({
-  origin: process.env.SITE_URL
+  origin: [
+    "https://voidtune.github.io",
+    "https://voidtune.github.io/voidtunes-media"
+  ]
 }));
 
 const API_KEY = process.env.ROBLOX_API_KEY;
