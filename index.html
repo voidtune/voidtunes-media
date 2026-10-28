@@ -1,332 +1,144 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoidTunes XL — Media Center</title>
-
-<style>
-:root {
-  --bg: #0b0d14;
-  --panel: #171b28;
-  --border: #30364b;
-  --accent: #8b5cf6;
-  --text: #f5f5ff;
-  --muted: #a5acc2;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  padding: 22px 14px;
-  background: radial-gradient(circle at top, #29204b, var(--bg) 55%);
-  color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
-}
-main { max-width: 600px; margin: auto; }
-header { text-align: center; margin: 20px 0 28px; }
-.logo { font-size: 44px; }
-h1 { margin: 0; font-size: 32px; }
-.subtitle { color: var(--muted); }
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 18px;
-  margin: 16px 0;
-}
-h2 { font-size: 19px; margin-top: 0; }
-button, .file-button {
-  display: block;
-  width: 100%;
-  padding: 14px;
-  margin-top: 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #252b40;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-  cursor: pointer;
-}
-button.primary { background: var(--accent); border-color: var(--accent); }
-button:disabled { opacity: .5; }
-input[type="text"] {
-  width: 100%;
-  padding: 13px;
-  margin-top: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #0e111a;
-  color: white;
-  font-size: 16px;
-}
-input[type="file"] { display: none; }
-.status {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-  margin-top: 12px;
-}
-.muted, .note { color: var(--muted); font-size: 13px; }
-.preview {
-  display: none;
-  width: 100%;
-  max-height: 280px;
-  object-fit: contain;
-  margin-top: 12px;
-  border-radius: 12px;
-  background: #05060a;
-}
-.success { color: #8df0b5; }
-.error { color: #ff9696; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoidTunes — Roblox Importer</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #090b14;
+      color: white;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      width: min(420px, 86vw);
+      padding: 24px;
+      border: 1px solid #343b55;
+      border-radius: 20px;
+      background: #141827;
+    }
+    h1 { color: #a99aff; }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 10px;
+    }
+    button {
+      background: #9275ff;
+      border: 0;
+      color: white;
+      font-weight: bold;
+    }
+    img {
+      display: block;
+      max-width: 100%;
+      max-height: 220px;
+      margin: 12px auto;
+      border-radius: 10px;
+    }
+    #result { overflow-wrap: anywhere; }
+  </style>
 </head>
-
 <body>
 <main>
-<header>
-  <div class="logo">🎵</div>
-  <h1>VoidTunes XL</h1>
-  <div class="subtitle">Media Center</div>
-</header>
+  <h1>VoidTunes</h1>
+  <p>Importer une image sur Roblox</p>
 
-<section class="card">
-  <h2>🖼️ 1. ID d’image Roblox</h2>
-  <p class="muted">Colle l’identifiant d’une image Roblox.</p>
-  <input id="robloxId" type="text" inputmode="numeric"
-         placeholder="Ex. 1234567890">
-  <button class="primary" id="useId">Utiliser l’ID</button>
-  <div id="idStatus" class="status"></div>
-</section>
+  <input id="file" type="file"
+         accept="image/png,image/jpeg,image/bmp">
 
-<section class="card">
-  <h2>📷 2. Importer une photo</h2>
-  <label class="file-button" for="photoInput">
-    Choisir une photo depuis l’iPad
-  </label>
-  <input id="photoInput" type="file"
-         accept="image/jpeg,image/png,image/webp">
-  <img id="photoPreview" class="preview" alt="Aperçu de la photo">
-</section>
+  <img id="preview" hidden alt="Aperçu de l'image">
 
-<section class="card">
-  <h2>🎬 3. Importer une vidéo</h2>
-  <label class="file-button" for="videoInput">
-    Choisir une vidéo depuis l’iPad
-  </label>
-  <input id="videoInput" type="file"
-         accept="video/mp4,video/quicktime">
-  <video id="videoPreview" class="preview" controls playsinline></video>
-</section>
-
-<section class="card">
-  <h2>☁️ Envoyer vers Supabase</h2>
-  <p class="muted">
-    Sélectionne une photo ou une vidéo, puis envoie-la dans ton stockage.
-  </p>
-  <button id="uploadButton" class="primary" disabled>
-    Envoyer le média
-  </button>
-  <div id="uploadStatus" class="status"></div>
-</section>
-
-<section class="card">
-  <h2>🔗 Utiliser un lien Roblox</h2>
-  <input id="robloxLink" type="text"
-         placeholder="Colle un lien ou un ID Roblox">
-  <button id="parseLink">Récupérer l’ID</button>
-  <div id="linkStatus" class="status"></div>
-</section>
-
-<section class="card">
-  <p class="note">
-    Important : l’importation d’un fichier dans Supabase ne le transforme
-    pas automatiquement en asset Roblox. Pour l’utiliser dans le jeu,
-    il faut un asset Roblox autorisé. La lecture de vidéos externes dans
-    Roblox n’est pas garantie.
-  </p>
-</section>
+  <button id="send">Importer sur Roblox</button>
+  <p id="result">Choisis une image pour commencer.</p>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
-const SUPABASE_URL =
-  "https://cjndvkmqfisnxyyokcfi.supabase.co";
+  // Remplace par l'adresse HTTPS de TON serveur déployé.
+  const API_URL = "https://TON-SERVEUR.example.com";
 
-const SUPABASE_KEY =
-  "sb_publishable__0tVbIyaVFoIZeXm1TcSMA_1-BXnKn4";
+  const fileInput = document.getElementById("file");
+  const preview = document.getElementById("preview");
+  const result = document.getElementById("result");
+  const button = document.getElementById("send");
 
-const BUCKET = "voidtunes-media";
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+    result.textContent = "Image prête à être importée.";
+  });
 
-let selectedFile = null;
+  button.addEventListener("click", async () => {
+    const file = fileInput.files[0];
 
-const photoInput = document.getElementById("photoInput");
-const videoInput = document.getElementById("videoInput");
-const uploadButton = document.getElementById("uploadButton");
-const uploadStatus = document.getElementById("uploadStatus");
-const photoPreview = document.getElementById("photoPreview");
-const videoPreview = document.getElementById("videoPreview");
+    if (!file) {
+      result.textContent = "Choisis d'abord une image.";
+      return;
+    }
 
-function status(element, message, success = false) {
-  element.textContent = message;
-  element.className = "status " + (success ? "success" : "error");
-}
+    if (file.size > 10 * 1024 * 1024) {
+      result.textContent = "Image trop volumineuse : maximum 10 Mo.";
+      return;
+    }
 
-function selectFile(file) {
-  selectedFile = file || null;
-  uploadButton.disabled = !selectedFile;
+    button.disabled = true;
+    result.textContent = "Envoi de l'image à Roblox…";
 
-  photoPreview.style.display = "none";
-  videoPreview.style.display = "none";
+    try {
+      const form = new FormData();
+      form.append("image", file);
 
-  if (!selectedFile) return;
-
-  if (selectedFile.size > 50 * 1024 * 1024) {
-    status(uploadStatus, "Le fichier dépasse la limite de 50 MB.");
-    selectedFile = null;
-    uploadButton.disabled = true;
-    return;
-  }
-
-  const localUrl = URL.createObjectURL(selectedFile);
-
-  if (selectedFile.type.startsWith("image/")) {
-    photoPreview.src = localUrl;
-    photoPreview.style.display = "block";
-  } else if (selectedFile.type.startsWith("video/")) {
-    videoPreview.src = localUrl;
-    videoPreview.style.display = "block";
-  }
-
-  status(
-    uploadStatus,
-    "Fichier sélectionné : " + selectedFile.name +
-    "\nTaille : " + (selectedFile.size / 1024 / 1024).toFixed(2) + " MB",
-    true
-  );
-}
-
-photoInput.addEventListener("change", () => {
-  videoInput.value = "";
-  selectFile(photoInput.files[0]);
-});
-
-videoInput.addEventListener("change", () => {
-  photoInput.value = "";
-  selectFile(videoInput.files[0]);
-});
-
-uploadButton.addEventListener("click", async () => {
-  if (!selectedFile) return;
-
-  uploadButton.disabled = true;
-  uploadButton.textContent = "Envoi en cours…";
-  status(uploadStatus, "Envoi du fichier…", true);
-
-  const safeName = selectedFile.name
-    .normalize("NFKD")
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(-80);
-
-  const path = Date.now() + "-" + safeName;
-
-  try {
-    const { data, error } = await supabaseClient
-      .storage
-      .from(BUCKET)
-      .upload(path, selectedFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: selectedFile.type
+      const response = await fetch(`${API_URL}/api/upload`, {
+        method: "POST",
+        body: form
       });
 
-    if (error) throw error;
+      const data = await response.json();
 
-    status(
-      uploadStatus,
-      "Importation réussie !\nChemin : " + data.path +
-      "\n\nLe bucket est privé. Le fichier n’est pas automatiquement public.",
-      true
-    );
+      if (!response.ok) {
+        throw new Error(data.error || "Importation refusée.");
+      }
 
-  } catch (error) {
-    status(
-      uploadStatus,
-      "Erreur d’importation : " + error.message +
-      "\nVérifie les permissions Supabase et le type MIME autorisé."
-    );
-  } finally {
-    uploadButton.disabled = !selectedFile;
-    uploadButton.textContent = "Envoyer le média";
-  }
-});
+      for (let i = 0; i < 30; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-function extractRobloxId(value) {
-  const text = value.trim();
+        const statusResponse = await fetch(
+          `${API_URL}/api/status/${encodeURIComponent(data.operationId)}`
+        );
 
-  if (/^\d+$/.test(text)) return text;
+        const status = await statusResponse.json();
 
-  const patterns = [
-    /rbxassetid:\/\/(\d+)/i,
-    /[?&]id=(\d+)/i,
-    /\/(?:library|catalog|asset|decals|images)\/(\d+)/i
-  ];
+        if (!statusResponse.ok) {
+          throw new Error(status.error || "Erreur de vérification.");
+        }
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) return match[1];
-  }
+        if (status.done) {
+          result.textContent =
+            `ID Roblox : ${status.assetId} — ` +
+            `Utilisation : ${status.image}`;
 
-  return null;
-}
+          return;
+        }
+      }
 
-document.getElementById("useId").addEventListener("click", () => {
-  const id = extractRobloxId(
-    document.getElementById("robloxId").value
-  );
-
-  if (!id) {
-    status(document.getElementById("idStatus"), "ID Roblox invalide.");
-    return;
-  }
-
-  document.getElementById("robloxId").value = id;
-
-  status(
-    document.getElementById("idStatus"),
-    "ID prêt à copier dans VoidTunes XL : " + id,
-    true
-  );
-});
-
-document.getElementById("parseLink").addEventListener("click", () => {
-  const input = document.getElementById("robloxLink");
-  const id = extractRobloxId(input.value);
-
-  if (!id) {
-    status(
-      document.getElementById("linkStatus"),
-      "Aucun ID Roblox trouvé dans ce lien."
-    );
-    return;
-  }
-
-  input.value = id;
-
-  status(
-    document.getElementById("linkStatus"),
-    "ID détecté : " + id +
-    "\nCopie-le dans le champ image de VoidTunes XL.",
-    true
-  );
-});
+      result.textContent =
+        "Import toujours en cours. Réessaie la vérification plus tard.";
+    } catch (error) {
+      result.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
 </script>
 </body>
 </html>
