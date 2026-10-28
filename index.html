@@ -1,144 +1,469 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VoidTunes — Roblox Importer</title>
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #090b14;
-      color: white;
-      font-family: system-ui, sans-serif;
-    }
-    main {
-      width: min(420px, 86vw);
-      padding: 24px;
-      border: 1px solid #343b55;
-      border-radius: 20px;
-      background: #141827;
-    }
-    h1 { color: #a99aff; }
-    input, button {
-      box-sizing: border-box;
-      width: 100%;
-      margin: 10px 0;
-      padding: 12px;
-      border-radius: 10px;
-    }
-    button {
-      background: #9275ff;
-      border: 0;
-      color: white;
-      font-weight: bold;
-    }
-    img {
-      display: block;
-      max-width: 100%;
-      max-height: 220px;
-      margin: 12px auto;
-      border-radius: 10px;
-    }
-    #result { overflow-wrap: anywhere; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoidTunes XL — Roblox Importer</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #090b14;
+  --panel: #141827;
+  --purple: #9275ff;
+  --border: #343b55;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 20px 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: white;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  width: min(500px, 92vw);
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--panel);
+}
+
+h1 {
+  color: #b6a6ff;
+  margin-bottom: 5px;
+}
+
+h2 {
+  font-size: 17px;
+  margin-top: 24px;
+}
+
+p {
+  color: #c5c9dc;
+  line-height: 1.5;
+}
+
+input, button, textarea {
+  width: 100%;
+  margin: 9px 0;
+  padding: 13px;
+  border-radius: 10px;
+  font: inherit;
+}
+
+input, textarea {
+  border: 1px solid var(--border);
+  background: #0d1120;
+  color: white;
+}
+
+button {
+  border: 0;
+  background: var(--purple);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: #303750;
+}
+
+video, img {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  margin: 12px auto;
+  border-radius: 10px;
+  background: #080a10;
+}
+
+progress {
+  width: 100%;
+  height: 16px;
+  accent-color: var(--purple);
+}
+
+.small {
+  font-size: 13px;
+  color: #9da5c0;
+}
+
+#result, #videoResult {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#ids {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.hidden {
+  display: none;
+}
+</style>
 </head>
+
 <body>
 <main>
-  <h1>VoidTunes</h1>
-  <p>Importer une image sur Roblox</p>
+  <h1>VoidTunes XL</h1>
+  <p>Importe tes images et prépare les IDs pour ton script Roblox.</p>
 
-  <input id="file" type="file"
-         accept="image/png,image/jpeg,image/bmp">
+  <h2>🖼️ Importer une image</h2>
 
-  <img id="preview" hidden alt="Aperçu de l'image">
+  <input
+    id="file"
+    type="file"
+    accept="image/png,image/jpeg,image/bmp"
+  >
 
-  <button id="send">Importer sur Roblox</button>
-  <p id="result">Choisis une image pour commencer.</p>
+  <img id="preview" class="hidden" alt="Aperçu">
+
+  <button id="send">Importer l'image</button>
+  <p id="result" role="status">Choisis une image pour commencer.</p>
+
+  <hr style="border-color:#343b55;margin:25px 0">
+
+  <h2>🎬 Importer une vidéo à 24 FPS</h2>
+
+  <p class="small">
+    Chaque image extraite sera importée séparément sur Roblox.
+    Une vidéo longue peut nécessiter beaucoup de temps et d'imports.
+  </p>
+
+  <input
+    id="videoFile"
+    type="file"
+    accept="video/*"
+  >
+
+  <video id="videoPreview" class="hidden" controls playsinline></video>
+
+  <p id="videoInfo" class="small">Aucune vidéo sélectionnée.</p>
+
+  <button id="videoSend">Extraire et importer les images</button>
+  <button id="stop" class="secondary" disabled>Arrêter après l'image en cours</button>
+
+  <progress id="progress" value="0" max="1"></progress>
+  <p id="videoResult" role="status">En attente d'une vidéo.</p>
+
+  <h2>📋 IDs Roblox</h2>
+  <p class="small">
+    Les IDs terminés apparaîtront ici, séparés par des virgules.
+  </p>
+
+  <textarea
+    id="ids"
+    placeholder="77629184773760,12345678901234,..."
+    spellcheck="false"
+  ></textarea>
+
+  <button id="copy" class="secondary">Copier tous les IDs</button>
 </main>
 
 <script>
-  // Remplace par l'adresse HTTPS de TON serveur déployé.
-  const API_URL = "https://voidtunes-api.onrender.com";
+const API_URL = "https://voidtunes-api.onrender.com";
+const FPS = 24;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
-  const fileInput = document.getElementById("file");
-  const preview = document.getElementById("preview");
-  const result = document.getElementById("result");
-  const button = document.getElementById("send");
+// Limite de sécurité : 10 secondes, soit au maximum 240 images.
+const MAX_DURATION = 10;
 
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
-    if (!file) return;
+const $ = id => document.getElementById(id);
 
-    preview.src = URL.createObjectURL(file);
-    preview.hidden = false;
-    result.textContent = "Image prête à être importée.";
+const fileInput = $("file");
+const preview = $("preview");
+const result = $("result");
+const sendButton = $("send");
+
+const videoInput = $("videoFile");
+const video = $("videoPreview");
+const videoInfo = $("videoInfo");
+const videoButton = $("videoSend");
+const stopButton = $("stop");
+const videoResult = $("videoResult");
+const progress = $("progress");
+const idsOutput = $("ids");
+
+let stopRequested = false;
+let currentVideoUrl = null;
+let currentImageUrl = null;
+let importedIds = [];
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function showError(error) {
+  return error instanceof Error
+    ? error.message
+    : "Une erreur inconnue est survenue.";
+}
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+  currentImageUrl = URL.createObjectURL(file);
+
+  preview.src = currentImageUrl;
+  preview.classList.remove("hidden");
+  result.textContent = "Image prête à être importée.";
+});
+
+videoInput.addEventListener("change", () => {
+  const file = videoInput.files[0];
+  if (!file) return;
+
+  if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+  currentVideoUrl = URL.createObjectURL(file);
+
+  video.src = currentVideoUrl;
+  video.classList.remove("hidden");
+  videoInfo.textContent = "Chargement des informations vidéo…";
+  videoResult.textContent = "Vidéo sélectionnée.";
+});
+
+video.addEventListener("loadedmetadata", () => {
+  if (!Number.isFinite(video.duration) || video.duration <= 0) {
+    videoInfo.textContent = "Durée vidéo invalide.";
+    return;
+  }
+
+  const count = Math.ceil(Math.min(video.duration, MAX_DURATION) * FPS);
+
+  videoInfo.textContent =
+    `Durée : ${video.duration.toFixed(2)} s — ` +
+    `${count} images maximum dans la limite actuelle.`;
+});
+
+async function uploadImage(blob, filename) {
+  if (blob.size > MAX_IMAGE_SIZE) {
+    throw new Error("Une image dépasse la limite de 10 Mo.");
+  }
+
+  const form = new FormData();
+  form.append("image", blob, filename);
+
+  const response = await fetch(`${API_URL}/api/upload`, {
+    method: "POST",
+    body: form
   });
 
-  button.addEventListener("click", async () => {
-    const file = fileInput.files[0];
+  const data = await response.json();
 
-    if (!file) {
-      result.textContent = "Choisis d'abord une image.";
-      return;
+  if (!response.ok) {
+    throw new Error(data.error || "Importation refusée par Roblox.");
+  }
+
+  if (!data.operationId) {
+    throw new Error("Identifiant d'opération manquant.");
+  }
+
+  for (let attempt = 0; attempt < 30; attempt++) {
+    await sleep(2000);
+
+    const statusResponse = await fetch(
+      `${API_URL}/api/status/${encodeURIComponent(data.operationId)}`
+    );
+
+    const status = await statusResponse.json();
+
+    if (!statusResponse.ok) {
+      throw new Error(status.error || "Erreur de vérification.");
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      result.textContent = "Image trop volumineuse : maximum 10 Mo.";
-      return;
+    if (status.done && status.assetId) {
+      return String(status.assetId);
     }
+  }
 
-    button.disabled = true;
-    result.textContent = "Envoi de l'image à Roblox…";
+  throw new Error("Délai dépassé pendant la vérification Roblox.");
+}
 
-    try {
-      const form = new FormData();
-      form.append("image", file);
+sendButton.addEventListener("click", async () => {
+  const file = fileInput.files[0];
 
-      const response = await fetch(`${API_URL}/api/upload`, {
-        method: "POST",
-        body: form
-      });
+  if (!file) {
+    result.textContent = "Choisis d'abord une image.";
+    return;
+  }
 
-      const data = await response.json();
+  if (file.size > MAX_IMAGE_SIZE) {
+    result.textContent = "Image trop volumineuse : maximum 10 Mo.";
+    return;
+  }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Importation refusée.");
-      }
+  sendButton.disabled = true;
+  result.textContent = "Importation en cours…";
 
-      for (let i = 0; i < 30; i++) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
+    const id = await uploadImage(file, file.name);
+    result.textContent = `ID Roblox : ${id}\nUtilisation : rbxassetid://${id}`;
+  } catch (error) {
+    result.textContent = showError(error);
+  } finally {
+    sendButton.disabled = false;
+  }
+});
 
-        const statusResponse = await fetch(
-          `${API_URL}/api/status/${encodeURIComponent(data.operationId)}`
-        );
+function seekTo(time) {
+  return new Promise((resolve, reject) => {
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
 
-        const status = await statusResponse.json();
+    const onError = () => {
+      cleanup();
+      reject(new Error("Impossible de lire une image de la vidéo."));
+    };
 
-        if (!statusResponse.ok) {
-          throw new Error(status.error || "Erreur de vérification.");
-        }
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+    };
 
-        if (status.done) {
-          result.textContent =
-            `ID Roblox : ${status.assetId} — ` +
-            `Utilisation : ${status.image}`;
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onError);
 
-          return;
-        }
-      }
-
-      result.textContent =
-        "Import toujours en cours. Réessaie la vérification plus tard.";
-    } catch (error) {
-      result.textContent = error.message;
-    } finally {
-      button.disabled = false;
-    }
+    video.currentTime = time;
   });
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error("Impossible de convertir l'image."));
+    }, "image/jpeg", 0.85);
+  });
+}
+
+videoButton.addEventListener("click", async () => {
+  const file = videoInput.files[0];
+
+  if (!file) {
+    videoResult.textContent = "Choisis d'abord une vidéo.";
+    return;
+  }
+
+  if (!Number.isFinite(video.duration) || video.duration <= 0) {
+    videoResult.textContent = "La vidéo n'est pas encore prête.";
+    return;
+  }
+
+  if (video.duration > MAX_DURATION) {
+    videoResult.textContent =
+      `Vidéo trop longue pour cette version : maximum ${MAX_DURATION} secondes. ` +
+      "Choisis un extrait plus court.";
+    return;
+  }
+
+  if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+    videoResult.textContent = "Dimensions vidéo indisponibles.";
+    return;
+  }
+
+  const total = Math.ceil(video.duration * FPS);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  importedIds = [];
+  idsOutput.value = "";
+  progress.value = 0;
+  progress.max = total;
+  stopRequested = false;
+
+  videoButton.disabled = true;
+  stopButton.disabled = false;
+
+  try {
+    // Traiter une image à la fois pour limiter les requêtes simultanées.
+    for (let i = 0; i < total; i++) {
+      if (stopRequested) break;
+
+      const time = i / FPS;
+
+      videoResult.textContent =
+        `Extraction et importation : ${i + 1}/${total}`;
+
+      await seekTo(Math.min(time, Math.max(0, video.duration - 0.01)));
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await canvasToBlob(canvas);
+      const id = await uploadImage(blob, `frame-${i + 1}.jpg`);
+
+      importedIds.push(id);
+      idsOutput.value = importedIds.join(",");
+      progress.value = i + 1;
+    }
+
+    if (stopRequested) {
+      videoResult.textContent =
+        `Arrêt demandé. ${importedIds.length} images importées.`;
+    } else {
+      videoResult.textContent =
+        `Terminé : ${importedIds.length}/${total} images importées.`;
+    }
+
+  } catch (error) {
+    videoResult.textContent =
+      `${showError(error)}\n${importedIds.length} IDs récupérés avant l'erreur.`;
+  } finally {
+    videoButton.disabled = false;
+    stopButton.disabled = true;
+  }
+});
+
+stopButton.addEventListener("click", () => {
+  stopRequested = true;
+  stopButton.disabled = true;
+  videoResult.textContent =
+    "Arrêt demandé : l'importation de l'image en cours va se terminer.";
+});
+
+$("copy").addEventListener("click", async () => {
+  if (!idsOutput.value.trim()) {
+    videoResult.textContent = "Aucun ID à copier.";
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(idsOutput.value);
+    videoResult.textContent = "Tous les IDs ont été copiés.";
+  } catch {
+    idsOutput.focus();
+    idsOutput.select();
+    videoResult.textContent =
+      "Sélection effectuée : utilise Copier dans le menu de ton iPad.";
+  }
+});
+
+window.addEventListener("beforeunload", () => {
+  if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+  if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+});
 </script>
 </body>
 </html>
