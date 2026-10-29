@@ -4,7 +4,7 @@ const multer = require("multer");
 const cors = require("cors");
 
 const app = express();
-
+app.use(express.json());
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
