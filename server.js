@@ -204,7 +204,22 @@ app.get(
     }
   }
 );
+app.post("/api/access-check", (req, res) => {
+  if (!IMPORT_PASSWORD) {
+    return res.status(503).json({
+      error: "Mot de passe non configuré."
+    });
+  }
 
+  if (req.body?.password !== IMPORT_PASSWORD) {
+    return res.status(401).json({
+      allowed: false,
+      error: "Accès refusé."
+    });
+  }
+
+  return res.json({ allowed: true });
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
