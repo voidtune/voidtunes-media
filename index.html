@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -114,15 +115,72 @@ progress {
 }
 
 .hidden {
+  display: none !important;
+}
+
+#lockScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 7, 16, 0.97);
+}
+
+.lockCard {
+  width: min(400px, 100%);
+  padding: 25px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: 0 15px 60px #0008;
+}
+
+.lockCard h1 {
+  margin-top: 0;
+}
+
+#lockError {
+  color: #ff8585;
+  min-height: 22px;
+}
+
+#appContent.locked {
   display: none;
 }
 </style>
 </head>
 
 <body>
+
+<div id="lockScreen">
+  <section class="lockCard">
+    <h1>VoidTunes XL</h1>
+    <p>🔒 Entre le mot de passe pour accéder à l'importation.</p>
+
+    <form id="passwordForm">
+      <input
+        id="passwordInput"
+        type="password"
+        placeholder="Mot de passe"
+        autocomplete="current-password"
+        required
+      >
+      <button id="unlockButton" type="submit">Accéder à l'importation</button>
+    </form>
+
+    <p id="lockError" role="alert"></p>
+    <p class="small">L'accès est vérifié par le serveur.</p>
+  </section>
+</div>
+
+<div id="appContent" class="locked">
 <main>
   <h1>VoidTunes XL</h1>
   <p>Importe tes images et prépare les IDs pour ton script Roblox.</p>
+
+  <button id="logout" class="secondary">Verrouiller l'importation</button>
 
   <h2>🖼️ Importer une image</h2>
 
@@ -146,18 +204,16 @@ progress {
     Une vidéo longue peut nécessiter beaucoup de temps et d'imports.
   </p>
 
-  <input
-    id="videoFile"
-    type="file"
-    accept="video/*"
-  >
+  <input id="videoFile" type="file" accept="video/*">
 
   <video id="videoPreview" class="hidden" controls playsinline></video>
 
   <p id="videoInfo" class="small">Aucune vidéo sélectionnée.</p>
 
   <button id="videoSend">Extraire et importer les images</button>
-  <button id="stop" class="secondary" disabled>Arrêter après l'image en cours</button>
+  <button id="stop" class="secondary" disabled>
+    Arrêter après l'image en cours
+  </button>
 
   <progress id="progress" value="0" max="1"></progress>
   <p id="videoResult" role="status">En attente d'une vidéo.</p>
@@ -175,16 +231,31 @@ progress {
 
   <button id="copy" class="secondary">Copier tous les IDs</button>
 </main>
+</div>
 
 <script>
 const API_URL = "https://voidtunes-api.onrender.com";
 const FPS = 24;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-
-// Limite de sécurité : 10 secondes, soit au maximum 240 images.
 const MAX_DURATION = 10;
 
+// Le mot de passe reste en mémoire pendant l'utilisation.
+// Il n'est pas enregistré dans localStorage.
+let importPassword = "";
+let stopRequested = false;
+let currentVideoUrl = null;
+let currentImageUrl = null;
+let importedIds = [];
+let busy = false;
+
 const $ = id => document.getElementById(id);
+
+const lockScreen = $("lockScreen");
+const appContent = $("appContent");
+const passwordForm = $("passwordForm");
+const passwordInput = $("passwordInput");
+const lockError = $("lockError");
+const unlockButton = $("unlockButton");
 
 const fileInput = $("file");
 const preview = $("preview");
@@ -200,11 +271,6 @@ const videoResult = $("videoResult");
 const progress = $("progress");
 const idsOutput = $("ids");
 
-let stopRequested = false;
-let currentVideoUrl = null;
-let currentImageUrl = null;
-let importedIds = [];
-
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -215,13 +281,114 @@ function showError(error) {
     : "Une erreur inconnue est survenue.";
 }
 
+function setUnlocked(unlocked) {
+  lockScreen.classList.toggle("hidden", unlocked);
+  appContent.classList.toggle("locked", !unlocked);
+
+  if (unlocked) {
+    passwordInput.value = "";
+  } else {
+    importPassword = "";
+    passwordInput.value = "";
+    lockError.textContent = "";
+    passwordInput.focus();
+  }
+}
+
+async function checkPassword(password) {
+  const response = await fetch(`${API_URL}/api/access-check`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ password })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Accès refusé.");
+  }
+
+  return data.allowed === true;
+}
+
+passwordForm.addEventListener("submit", async event => {
+  event.preventDefault();
+
+  const password = passwordInput.value;
+
+  if (!password) {
+    lockError.textContent = "Entre le mot de passe.";
+    return;
+  }
+
+  unlockButton.disabled = true;
+  lockError.textContent = "Vérification…";
+
+  try {
+    const allowed = await checkPassword(password);
+
+    if (!allowed) {
+      throw new Error("Mot de passe incorrect.");
+    }
+
+    importPassword = password;
+    lockError.textContent = "";
+    setUnlocked(true);
+  } catch (error) {
+    lockError.textContent = showError(error);
+    passwordInput.value = "";
+    passwordInput.focus();
+  } finally {
+    unlockButton.disabled = false;
+  }
+});
+
+$("logout").addEventListener("click", () => {
+  if (busy) {
+    alert("Attends la fin de l'importation avant de verrouiller.");
+    return;
+  }
+
+  setUnlocked(false);
+});
+
+async function apiFetch(url, options = {}) {
+  if (!importPassword) {
+    setUnlocked(false);
+    throw new Error("Entre le mot de passe pour continuer.");
+  }
+
+  const headers = new Headers(options.headers || {});
+  headers.set("x-import-password", importPassword);
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401) {
+    setUnlocked(false);
+    throw new Error("Mot de passe refusé. Connecte-toi à nouveau.");
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "La requête a échoué.");
+  }
+
+  return data;
+}
+
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
   if (!file) return;
 
   if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
-  currentImageUrl = URL.createObjectURL(file);
 
+  currentImageUrl = URL.createObjectURL(file);
   preview.src = currentImageUrl;
   preview.classList.remove("hidden");
   result.textContent = "Image prête à être importée.";
@@ -232,8 +399,8 @@ videoInput.addEventListener("change", () => {
   if (!file) return;
 
   if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
-  currentVideoUrl = URL.createObjectURL(file);
 
+  currentVideoUrl = URL.createObjectURL(file);
   video.src = currentVideoUrl;
   video.classList.remove("hidden");
   videoInfo.textContent = "Chargement des informations vidéo…";
@@ -261,16 +428,10 @@ async function uploadImage(blob, filename) {
   const form = new FormData();
   form.append("image", blob, filename);
 
-  const response = await fetch(`${API_URL}/api/upload`, {
+  const data = await apiFetch(`${API_URL}/api/upload`, {
     method: "POST",
     body: form
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Importation refusée par Roblox.");
-  }
 
   if (!data.operationId) {
     throw new Error("Identifiant d'opération manquant.");
@@ -279,15 +440,9 @@ async function uploadImage(blob, filename) {
   for (let attempt = 0; attempt < 30; attempt++) {
     await sleep(2000);
 
-    const statusResponse = await fetch(
+    const status = await apiFetch(
       `${API_URL}/api/status/${encodeURIComponent(data.operationId)}`
     );
-
-    const status = await statusResponse.json();
-
-    if (!statusResponse.ok) {
-      throw new Error(status.error || "Erreur de vérification.");
-    }
 
     if (status.done && status.assetId) {
       return String(status.assetId);
@@ -310,15 +465,18 @@ sendButton.addEventListener("click", async () => {
     return;
   }
 
+  busy = true;
   sendButton.disabled = true;
   result.textContent = "Importation en cours…";
 
   try {
     const id = await uploadImage(file, file.name);
-    result.textContent = `ID Roblox : ${id}\nUtilisation : rbxassetid://${id}`;
+    result.textContent =
+      `ID Roblox : ${id}\nUtilisation : rbxassetid://${id}`;
   } catch (error) {
     result.textContent = showError(error);
   } finally {
+    busy = false;
     sendButton.disabled = false;
   }
 });
@@ -342,7 +500,6 @@ function seekTo(time) {
 
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("error", onError);
-
     video.currentTime = time;
   });
 }
@@ -357,6 +514,8 @@ function canvasToBlob(canvas) {
 }
 
 videoButton.addEventListener("click", async () => {
+  if (busy) return;
+
   const file = videoInput.files[0];
 
   if (!file) {
@@ -371,8 +530,7 @@ videoButton.addEventListener("click", async () => {
 
   if (video.duration > MAX_DURATION) {
     videoResult.textContent =
-      `Vidéo trop longue pour cette version : maximum ${MAX_DURATION} secondes. ` +
-      "Choisis un extrait plus court.";
+      `Vidéo trop longue : maximum ${MAX_DURATION} secondes.`;
     return;
   }
 
@@ -393,21 +551,21 @@ videoButton.addEventListener("click", async () => {
   progress.value = 0;
   progress.max = total;
   stopRequested = false;
+  busy = true;
 
   videoButton.disabled = true;
   stopButton.disabled = false;
 
   try {
-    // Traiter une image à la fois pour limiter les requêtes simultanées.
     for (let i = 0; i < total; i++) {
       if (stopRequested) break;
-
-      const time = i / FPS;
 
       videoResult.textContent =
         `Extraction et importation : ${i + 1}/${total}`;
 
-      await seekTo(Math.min(time, Math.max(0, video.duration - 0.01)));
+      await seekTo(
+        Math.min(i / FPS, Math.max(0, video.duration - 0.01))
+      );
 
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -419,18 +577,16 @@ videoButton.addEventListener("click", async () => {
       progress.value = i + 1;
     }
 
-    if (stopRequested) {
-      videoResult.textContent =
-        `Arrêt demandé. ${importedIds.length} images importées.`;
-    } else {
-      videoResult.textContent =
-        `Terminé : ${importedIds.length}/${total} images importées.`;
-    }
+    videoResult.textContent = stopRequested
+      ? `Arrêt demandé. ${importedIds.length} images importées.`
+      : `Terminé : ${importedIds.length}/${total} images importées.`;
 
   } catch (error) {
     videoResult.textContent =
-      `${showError(error)}\n${importedIds.length} IDs récupérés avant l'erreur.`;
+      `${showError(error)}\n` +
+      `${importedIds.length} IDs récupérés avant l'erreur.`;
   } finally {
+    busy = false;
     videoButton.disabled = false;
     stopButton.disabled = true;
   }
@@ -440,7 +596,7 @@ stopButton.addEventListener("click", () => {
   stopRequested = true;
   stopButton.disabled = true;
   videoResult.textContent =
-    "Arrêt demandé : l'importation de l'image en cours va se terminer.";
+    "Arrêt demandé : l'image en cours va se terminer.";
 });
 
 $("copy").addEventListener("click", async () => {
@@ -456,7 +612,7 @@ $("copy").addEventListener("click", async () => {
     idsOutput.focus();
     idsOutput.select();
     videoResult.textContent =
-      "Sélection effectuée : utilise Copier dans le menu de ton iPad.";
+      "Sélection effectuée : utilise Copier dans le menu de ton appareil.";
   }
 });
 
@@ -465,5 +621,6 @@ window.addEventListener("beforeunload", () => {
   if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
 });
 </script>
+
 </body>
 </html>
